@@ -1,36 +1,27 @@
-import type { AxiosInstance } from 'axios';
 import { useCallback, useEffect, useState } from 'react';
-import type { FormEvent } from 'react';
 import { BookOpen, Download, FileText, Folder, FolderPlus, Pencil, Search, Trash2, Upload } from 'lucide-react';
 import { errorMessage } from './api';
 import { Dialog, Field, fieldValue, saveDownload } from './classroomUi';
 
-import type { Subject } from './classroomUi';
-type ResourceFolder = { id: number; subjectId: number; name: string };
-type ResourceFile = { id: number; name: string; size: number; subjectId: number; folderId: number | null };
-type Library = { subjects: Subject[]; folders: ResourceFolder[]; files: ResourceFile[] };
 
-export default function Resources({ api, canEdit }: {
-  api: AxiosInstance;
-  canEdit: boolean;
-}) {
-  const [library, setLibrary] = useState<Library>();
+export default function Resources({ api, canEdit }) {
+  const [library, setLibrary] = useState();
   const [loadError, setLoadError] = useState('');
-  const [subjectId, setSubjectId] = useState<number | null>(null);
-  const [folderId, setFolderId] = useState<number | null>(null);
+  const [subjectId, setSubjectId] = useState(null);
+  const [folderId, setFolderId] = useState(null);
   const [query, setQuery] = useState('');
   const [creating, setCreating] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [feedback, setFeedback] = useState<{ message: string; error?: boolean }>();
-  const [editing, setEditing] = useState<ResourceFile | null>(null);
-  const [destinationSubject, setDestinationSubject] = useState<number>();
+  const [feedback, setFeedback] = useState();
+  const [editing, setEditing] = useState(null);
+  const [destinationSubject, setDestinationSubject] = useState();
   const [destinationFolder, setDestinationFolder] = useState('');
 
   const load = useCallback(async () => {
     const [subjects, folders, files] = await Promise.all([
-      api.get<Subject[]>('/subjects'),
-      api.get<ResourceFolder[]>('/resource-folders'),
-      api.get<ResourceFile[]>('/resources'),
+      api.get('/subjects'),
+      api.get('/resource-folders'),
+      api.get('/resources'),
     ]);
     setLibrary({
       subjects: [...subjects.data].sort((a, b) => a.name.localeCompare(b.name)),
@@ -50,7 +41,7 @@ export default function Resources({ api, canEdit }: {
     (file.folderId ?? null) === (folder?.id ?? null) && file.name.toLowerCase().includes(query.trim().toLowerCase())
   );
 
-  function chooseSubject(id: number) {
+  function chooseSubject(id) {
     setFeedback(undefined);
     setSubjectId(id);
     setFolderId(null);
@@ -64,7 +55,7 @@ export default function Resources({ api, canEdit }: {
     setFeedback(undefined);
   }
 
-  async function createFolder(event: FormEvent<HTMLFormElement>) {
+  async function createFolder(event) {
     event.preventDefault();
     if (!subject || busy) return;
     const form = event.currentTarget;
@@ -76,7 +67,7 @@ export default function Resources({ api, canEdit }: {
     setBusy(true);
     setFeedback(undefined);
     try {
-      const { data } = await api.post<ResourceFolder>('/resource-folders', { subjectId: subject.id, name });
+      const { data } = await api.post('/resource-folders', { subjectId: subject.id, name });
       setLibrary(current => current && ({
         ...current,
         folders: [...current.folders, data].sort((a, b) => a.name.localeCompare(b.name)),
@@ -92,7 +83,7 @@ export default function Resources({ api, canEdit }: {
     }
   }
 
-  async function upload(event: FormEvent<HTMLFormElement>) {
+  async function upload(event) {
     event.preventDefault();
     if (!subject || !folder || busy) return;
     const form = event.currentTarget;
@@ -102,7 +93,7 @@ export default function Resources({ api, canEdit }: {
     setBusy(true);
     setFeedback(undefined);
     try {
-      const { data } = await api.post<ResourceFile>('/resources', payload);
+      const { data } = await api.post('/resources', payload);
       setLibrary(current => current && { ...current, files: [data, ...current.files] });
       form.reset();
       setQuery('');
@@ -114,23 +105,23 @@ export default function Resources({ api, canEdit }: {
     }
   }
 
-  async function download(file: ResourceFile) {
+  async function download(file) {
     try {
-      const { data } = await api.get<Blob>('/resources/' + file.id + '/download', { responseType: 'blob' });
+      const { data } = await api.get('/resources/' + file.id + '/download', { responseType: 'blob' });
       saveDownload(data, file.name);
     } catch (error) {
       setFeedback({ message: errorMessage(error), error: true });
     }
   }
 
-  function edit(file: ResourceFile) {
+  function edit(file) {
     setFeedback(undefined);
     setDestinationSubject(file.subjectId);
     setDestinationFolder(file.folderId == null ? '' : String(file.folderId));
     setEditing(file);
   }
 
-  async function saveFile(event: FormEvent<HTMLFormElement>) {
+  async function saveFile(event) {
     event.preventDefault();
     if (!editing || busy) return;
     const input = {
@@ -141,7 +132,7 @@ export default function Resources({ api, canEdit }: {
     setBusy(true);
     setFeedback(undefined);
     try {
-      const { data } = await api.put<ResourceFile>('/resources/' + editing.id, input);
+      const { data } = await api.put('/resources/' + editing.id, input);
       setLibrary(current => current && { ...current, files: current.files.map(file => file.id === data.id ? data : file) });
       setSubjectId(data.subjectId);
       setFolderId(data.folderId);
@@ -156,7 +147,7 @@ export default function Resources({ api, canEdit }: {
     }
   }
 
-  async function remove(file: ResourceFile) {
+  async function remove(file) {
     if (busy || !window.confirm('Delete ' + file.name + '?')) return;
     setBusy(true);
     setFeedback(undefined);

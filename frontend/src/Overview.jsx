@@ -1,21 +1,17 @@
-import type { AxiosInstance } from 'axios';
 import { useEffect, useState } from 'react';
 import { CalendarDays, ChevronRight, FileText, Megaphone } from 'lucide-react';
 import { errorMessage } from './api';
 import { Dialog, formatTime } from './classroomUi';
-import type { Announcement, ClassEvent } from './classroomUi';
 import { EventBadge, EventDetails } from './ClassCalendar';
 import { AnnouncementDialog, AnnouncementPreview } from './AnnouncementPreview';
 
-type FileSummary = { id: number; name: string; subject: string; uploadedAt: string };
-type Summary = { announcements: Announcement[]; events: ClassEvent[]; files: FileSummary[] };
 
-export default function Overview({ api, go }: { api: AxiosInstance; go: (tab: string) => void }) {
-  const [summary, setSummary] = useState<Summary>();
+export default function Overview({ api, go }) {
+  const [summary, setSummary] = useState();
   const [error, setError] = useState('');
   const [revision, refresh] = useState(0);
-  const [event, setEvent] = useState<ClassEvent>();
-  const [announcementId, setAnnouncementId] = useState<number>();
+  const [event, setEvent] = useState();
+  const [announcementId, setAnnouncementId] = useState();
   const openAnnouncement = summary?.announcements.find(item => item.id === announcementId);
 
   useEffect(() => {
@@ -24,9 +20,9 @@ export default function Overview({ api, go }: { api: AxiosInstance; go: (tab: st
     async function load() {
       try {
         const [announcements, events, files] = await Promise.all([
-          api.get<Announcement[]>('/announcements', options),
-          api.get<ClassEvent[]>('/events', options),
-          api.get<FileSummary[]>('/resources', options),
+          api.get('/announcements', options),
+          api.get('/events', options),
+          api.get('/resources', options),
         ]);
         if (controller.signal.aborted) return;
         setSummary({ announcements: announcements.data, events: events.data, files: files.data });

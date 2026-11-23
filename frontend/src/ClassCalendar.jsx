@@ -1,6 +1,4 @@
-import type { AxiosInstance } from 'axios';
 import { useEffect, useRef, useState } from 'react';
-import type { FormEvent } from 'react';
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
@@ -8,7 +6,6 @@ import interactionPlugin from '@fullcalendar/interaction';
 import { Clock3, Download, MapPin, Pencil, Plus, Trash2 } from 'lucide-react';
 import { errorMessage } from './api';
 import { Dialog, Field, SubjectSelect, fieldValue, formatTime, localInput, saveDownload, subjectId } from './classroomUi';
-import type { ClassEvent, Subject } from './classroomUi';
 
 const types = [
   { value: 'EXAM', label: 'Exam', tone: 'violet' },
@@ -18,16 +15,16 @@ const types = [
   { value: 'OTHER', label: 'Other', tone: 'slate' },
 ];
 
-export function EventBadge({ type }: { type: string }) {
+export function EventBadge({ type }) {
   const value = types.find(item => item.value === type) ?? types[4];
   return <span className={'badge ' + value.tone}>{value.label}</span>;
 }
 
-function dayTitle(date: Date) {
+function dayTitle(date) {
   return date.toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 }
 
-export function EventDetails({ event }: { event: ClassEvent }) {
+export function EventDetails({ event }) {
   return <div className="event-details">
     <EventBadge type={event.eventType} />
     {event.subject && <span className="badge">{event.subject}</span>}
@@ -40,19 +37,17 @@ export function EventDetails({ event }: { event: ClassEvent }) {
   </div>;
 }
 
-export default function ClassCalendar({ api, canEdit, note }: {
-  api: AxiosInstance; canEdit: boolean; note: (message: string) => void;
-}) {
-  const [events, setEvents] = useState<ClassEvent[]>();
-  const [subjects, setSubjects] = useState<Subject[]>([]);
-  const [form, setForm] = useState<{ event?: ClassEvent; day?: Date }>();
+export default function ClassCalendar({ api, canEdit, note }) {
+  const [events, setEvents] = useState();
+  const [subjects, setSubjects] = useState([]);
+  const [form, setForm] = useState();
   const [formError, setFormError] = useState('');
-  const [selectedDay, setSelectedDay] = useState<Date>();
-  const [detailId, setDetailId] = useState<number>();
+  const [selectedDay, setSelectedDay] = useState();
+  const [detailId, setDetailId] = useState();
   const [busy, setBusy] = useState(false);
   const [loadError, setLoadError] = useState('');
   const [revision, refresh] = useState(0);
-  const formRef = useRef<HTMLFormElement>(null);
+  const formRef = useRef(null);
   const detail = events?.find(event => event.id === detailId);
   const detailsTitle = form?.day ? 'Add event for ' + dayTitle(form.day)
     : form?.event ? 'Edit calendar event'
@@ -64,26 +59,26 @@ export default function ClassCalendar({ api, canEdit, note }: {
 
   useEffect(() => {
     const controller = new AbortController();
-    api.get<ClassEvent[]>('/events', { signal: controller.signal })
+    api.get('/events', { signal: controller.signal })
       .then(({ data }) => { setEvents(data); setLoadError(''); })
       .catch(error => { if (!controller.signal.aborted) setLoadError(errorMessage(error)); });
     return () => controller.abort();
   }, [api, revision]);
 
   useEffect(() => {
-    if (canEdit) api.get<Subject[]>('/subjects').then(({ data }) => setSubjects(data)).catch(error => note(errorMessage(error)));
+    if (canEdit) api.get('/subjects').then(({ data }) => setSubjects(data)).catch(error => note(errorMessage(error)));
   }, [api, canEdit, note]);
 
   useEffect(() => {
     if (form) formRef.current?.querySelector('input')?.focus();
   }, [form]);
 
-  function openForm(next: { event?: ClassEvent; day?: Date }) {
+  function openForm(next) {
     setFormError('');
     setForm(next);
   }
 
-  async function save(event: FormEvent<HTMLFormElement>) {
+  async function save(event) {
     event.preventDefault();
     if (!form || busy) return;
     const data = new FormData(event.currentTarget);
@@ -101,8 +96,8 @@ export default function ClassCalendar({ api, canEdit, note }: {
     setFormError('');
     try {
       const { data: saved } = form.event
-        ? await api.put<ClassEvent>('/events/' + form.event.id, input)
-        : await api.post<ClassEvent>('/events', input);
+        ? await api.put('/events/' + form.event.id, input)
+        : await api.post('/events', input);
       setEvents(current => [...(current ?? []).filter(item => item.id !== saved.id), saved]
         .sort((a, b) => Date.parse(a.startAt) - Date.parse(b.startAt)));
       note(form.event ? 'Event updated.' : 'Event added.');
@@ -115,7 +110,7 @@ export default function ClassCalendar({ api, canEdit, note }: {
     }
   }
 
-  async function remove(event: ClassEvent) {
+  async function remove(event) {
     if (!window.confirm('Delete “' + event.title + '”?')) return;
     setBusy(true);
     try {
@@ -131,24 +126,24 @@ export default function ClassCalendar({ api, canEdit, note }: {
     }
   }
 
-  async function download(event: ClassEvent) {
+  async function download(event) {
     try {
-      const { data } = await api.get<Blob>('/events/' + event.id + '/ics', { responseType: 'blob' });
+      const { data } = await api.get('/events/' + event.id + '/ics', { responseType: 'blob' });
       saveDownload(data, 'event-' + event.id + '.ics');
     } catch (error) {
       note(errorMessage(error));
     }
   }
 
-  function openDay(date: Date) { setDetailId(undefined); setSelectedDay(date); }
-  function openEvent(id: number) { setSelectedDay(undefined); setDetailId(id); }
+  function openDay(date) { setDetailId(undefined); setSelectedDay(date); }
+  function openEvent(id) { setSelectedDay(undefined); setDetailId(id); }
   function closeDetails() {
     setDetailId(undefined);
     setSelectedDay(undefined);
     setForm(undefined);
   }
 
-  function initialTime(hour: number, value?: string) {
+  function initialTime(hour, value) {
     if (value || !form?.day) return localInput(value);
     const day = new Date(form.day);
     day.setHours(hour, 0, 0, 0);

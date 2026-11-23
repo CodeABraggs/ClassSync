@@ -2,7 +2,7 @@
 
 ClassSync is a local-first class portal with a CR workspace and a shareable, read-only classroom. Visitors can read announcements, view calendar events, and download study materials without an account.
 
-The Spring Boot API lives in `backend/` and the React frontend lives in `frontend/`. The original project specification is in `plan.txt`. This README describes the implemented application.
+The Spring Boot API lives in `backend/` and the React frontend uses JavaScript and JSX in `frontend/`. The original project specification is in `plan.txt`. This README describes the implemented application.
 
 ## Requirements
 
@@ -74,4 +74,4 @@ cd ../frontend
 npm.cmd run build
 ```
 
-Backend tests run against an isolated in-memory H2 database and write test uploads under `backend/target/`. Flyway maintains separate migrations for H2 and MySQL. The frontend build runs TypeScript checks and creates the production bundle.
+Backend tests run against an isolated in-memory H2 database and write test uploads under `backend/target/`. Flyway maintains separate migrations for H2 and MySQL. The frontend build creates the production bundle in `frontend/dist/`.

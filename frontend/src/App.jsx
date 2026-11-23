@@ -1,5 +1,4 @@
 import { createContext, useContext, useEffect, useState } from 'react';
-import type { FormEvent } from 'react';
 import { Bell, BookOpen, CalendarDays, Check, Copy, Eye, EyeOff, FileText, GraduationCap, LayoutDashboard, Link2, LogOut, Megaphone, Pencil, Plus, Trash2, X } from 'lucide-react';
 import { api, createReaderApi, errorMessage, initCsrf } from './api';
 import Announcements from './Announcements';
@@ -7,10 +6,7 @@ import ClassCalendar from './ClassCalendar';
 import Overview from './Overview';
 import Resources from './Resources';
 import { Dialog, Field, Heading, fieldValue } from './classroomUi';
-import type { Subject } from './classroomUi';
 
-type Me = { id: number; name: string; email: string; role: 'CR' };
-type Classroom = { name: string };
 const ApiContext = createContext(api);
 const useApi = () => useContext(ApiContext);
 
@@ -27,9 +23,9 @@ export default function App() {
 }
 
 function CrApp() {
-  const [me, setMe] = useState<Me | null>();
+  const [me, setMe] = useState();
   useEffect(() => {
-    initCsrf().then(() => api.get<Me>('/auth/me')).then(result => setMe(result.data)).catch(() => setMe(null));
+    initCsrf().then(() => api.get('/auth/me')).then(result => setMe(result.data)).catch(() => setMe(null));
   }, []);
 
   if (me === undefined) return <Loading text="Opening your workspace" />;
@@ -40,11 +36,11 @@ function CrApp() {
 function SharedClassroom() {
   const [token] = useState(() => window.location.hash.slice(1));
   const [readerApi] = useState(() => createReaderApi(token));
-  const [status, setStatus] = useState<'loading' | 'invalid' | 'offline' | Classroom>(token ? 'loading' : 'invalid');
+  const [status, setStatus] = useState(token ? 'loading' : 'invalid');
 
   useEffect(() => {
     if (!token) return;
-    readerApi.get<Classroom>('/classroom').then(({ data }) => setStatus(data)).catch(error => {
+    readerApi.get('/classroom').then(({ data }) => setStatus(data)).catch(error => {
       setStatus([401, 403].includes(error.response?.status) ? 'invalid' : 'offline');
     });
   }, [readerApi, token]);
@@ -61,11 +57,11 @@ function SharedClassroom() {
   return <ApiContext.Provider value={readerApi}><Workspace initialClassroom={status} /></ApiContext.Provider>;
 }
 
-function Loading({ text }: { text: string }) {
+function Loading({ text }) {
   return <main className="loading"><Logo /><div className="spinner" /><p>{text}</p></main>;
 }
 
-function Workspace({ me, onLogout, initialClassroom }: { me?: Me; onLogout?: () => void; initialClassroom?: Classroom }) {
+function Workspace({ me, onLogout, initialClassroom }) {
   const classroomApi = useApi();
   const [classroom, setClassroom] = useState(initialClassroom);
   const [renaming, setRenaming] = useState(false);
@@ -83,7 +79,7 @@ function Workspace({ me, onLogout, initialClassroom }: { me?: Me; onLogout?: () 
   useEffect(() => {
     if (initialClassroom) return;
     const controller = new AbortController();
-    classroomApi.get<Classroom>('/classroom', { signal: controller.signal })
+    classroomApi.get('/classroom', { signal: controller.signal })
       .then(({ data }) => setClassroom(current => current ?? data))
       .catch(error => { if (!controller.signal.aborted) setMessage(errorMessage(error)); });
     return () => controller.abort();
@@ -98,7 +94,7 @@ function Workspace({ me, onLogout, initialClassroom }: { me?: Me; onLogout?: () 
   async function share() {
     setSharing(true);
     try {
-      const { data } = await api.post<{ token: string }>('/admin/classroom-share');
+      const { data } = await api.post('/admin/classroom-share');
       const url = new URL('/classroom', window.location.origin);
       url.hash = data.token;
       setShareUrl(url.href);
@@ -109,7 +105,7 @@ function Workspace({ me, onLogout, initialClassroom }: { me?: Me; onLogout?: () 
     }
   }
 
-  async function rename(event: FormEvent<HTMLFormElement>) {
+  async function rename(event) {
     event.preventDefault();
     if (savingName) return;
     const name = fieldValue(new FormData(event.currentTarget), 'name').trim();
@@ -120,7 +116,7 @@ function Workspace({ me, onLogout, initialClassroom }: { me?: Me; onLogout?: () 
     setSavingName(true);
     setRenameError('');
     try {
-      const { data } = await classroomApi.put<Classroom>('/classroom', { name });
+      const { data } = await classroomApi.put('/classroom', { name });
       setClassroom(data);
       setRenaming(false);
       setMessage('Classroom renamed.');
@@ -136,7 +132,7 @@ function Workspace({ me, onLogout, initialClassroom }: { me?: Me; onLogout?: () 
       await navigator.clipboard.writeText(shareUrl);
       setMessage('Classroom link copied.');
     } catch {
-      const input = document.getElementById('classroom-link') as HTMLInputElement | null;
+      const input = document.getElementById('classroom-link');
       input?.focus();
       input?.select();
       setMessage('Link selected. Use your device’s copy command.');
@@ -201,20 +197,20 @@ function Workspace({ me, onLogout, initialClassroom }: { me?: Me; onLogout?: () 
     </div>
   );
 }
-function Logo(){return <div className="logo"><span><GraduationCap/></span>ClassSync</div>}function Avatar({name}:{name:string}){return <i className="avatar">{name.split(' ').slice(0,2).map(x=>x[0]).join('').toUpperCase()}</i>}
-function Auth({ done }: { done: (me: Me) => void }) {
+function Logo(){return <div className="logo"><span><GraduationCap/></span>ClassSync</div>}function Avatar({name}){return <i className="avatar">{name.split(' ').slice(0,2).map(x=>x[0]).join('').toUpperCase()}</i>}
+function Auth({ done }) {
   const [message, setMessage] = useState('');
   const [busy, setBusy] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
-  async function submit(event: FormEvent<HTMLFormElement>) {
+  async function submit(event) {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
     setBusy(true);
     setMessage('');
     try {
       await initCsrf();
-      const { data } = await api.post<Me>('/auth/login', { email: form.get('email'), password: form.get('password') });
+      const { data } = await api.post('/auth/login', { email: form.get('email'), password: form.get('password') });
       done(data);
     } catch (error) {
       setMessage(errorMessage(error));
@@ -247,16 +243,16 @@ function Auth({ done }: { done: (me: Me) => void }) {
     </main>
   );
 }
-function Subjects({ note }: { note: (message: string) => void }) {
-  const [subjects, setSubjects] = useState<Subject[]>([]);
-  const [editing, setEditing] = useState<Subject | null>(null);
+function Subjects({ note }) {
+  const [subjects, setSubjects] = useState([]);
+  const [editing, setEditing] = useState(null);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    api.get<Subject[]>('/subjects').then(({ data }) => setSubjects(data)).catch(error => note(errorMessage(error)));
+    api.get('/subjects').then(({ data }) => setSubjects(data)).catch(error => note(errorMessage(error)));
   }, [note]);
 
-  async function saveSubject(event: FormEvent<HTMLFormElement>) {
+  async function saveSubject(event) {
     event.preventDefault();
     const form = event.currentTarget;
     const data = new FormData(form);
@@ -264,7 +260,7 @@ function Subjects({ note }: { note: (message: string) => void }) {
     setSaving(true);
     try {
       const response = editing
-        ? await api.put<Subject>('/subjects/' + editing.id, input) : await api.post<Subject>('/subjects', input);
+        ? await api.put('/subjects/' + editing.id, input) : await api.post('/subjects', input);
       setSubjects(current => editing ? current.map(subject => subject.id === editing.id ? response.data : subject) : [...current, response.data]);
       form.reset();
       setEditing(null);
@@ -276,7 +272,7 @@ function Subjects({ note }: { note: (message: string) => void }) {
     }
   }
 
-  async function deleteSubject(subject: Subject) {
+  async function deleteSubject(subject) {
     if (!window.confirm('Delete “' + subject.name + '”?')) return;
     setSaving(true);
     try {

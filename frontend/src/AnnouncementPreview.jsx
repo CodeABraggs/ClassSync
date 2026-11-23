@@ -1,12 +1,11 @@
 import { Megaphone } from 'lucide-react';
 import { Dialog, formatTime } from './classroomUi';
-import type { Announcement } from './classroomUi';
 
-function isScheduled(item: Announcement) {
+function isScheduled(item) {
   return item.publishAt != null && Date.parse(item.publishAt) > Date.now();
 }
 
-export function AnnouncementPreview({ item, onOpen }: { item: Announcement; onOpen: () => void }) {
+export function AnnouncementPreview({ item, onOpen }) {
   const time = item.publishAt ?? item.createdAt;
   const scheduled = isScheduled(item);
 
@@ -25,7 +24,7 @@ export function AnnouncementPreview({ item, onOpen }: { item: Announcement; onOp
   </button>;
 }
 
-export function AnnouncementDialog({ item, onClose }: { item: Announcement; onClose: () => void }) {
+export function AnnouncementDialog({ item, onClose }) {
   const time = item.publishAt ?? item.createdAt;
   const scheduled = isScheduled(item);
 

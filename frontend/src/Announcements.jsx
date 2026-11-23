@@ -1,19 +1,14 @@
-import type { AxiosInstance } from 'axios';
 import { useEffect, useState } from 'react';
-import type { FormEvent } from 'react';
 import { Pencil, Plus, Trash2 } from 'lucide-react';
 import { errorMessage } from './api';
 import { Dialog, Field, SubjectSelect, fieldValue, localInput, subjectId } from './classroomUi';
-import type { Announcement, Subject } from './classroomUi';
 import { AnnouncementDialog, AnnouncementPreview } from './AnnouncementPreview';
 
-export default function Announcements({ api, canEdit, note }: {
-  api: AxiosInstance; canEdit: boolean; note: (message: string) => void;
-}) {
-  const [items, setItems] = useState<Announcement[]>();
-  const [subjects, setSubjects] = useState<Subject[]>([]);
-  const [editing, setEditing] = useState<Announcement | null>();
-  const [openId, setOpenId] = useState<number>();
+export default function Announcements({ api, canEdit, note }) {
+  const [items, setItems] = useState();
+  const [subjects, setSubjects] = useState([]);
+  const [editing, setEditing] = useState();
+  const [openId, setOpenId] = useState();
   const [busy, setBusy] = useState(false);
   const [formError, setFormError] = useState('');
   const [error, setError] = useState('');
@@ -23,7 +18,7 @@ export default function Announcements({ api, canEdit, note }: {
 
   useEffect(() => {
     const controller = new AbortController();
-    const read = () => api.get<Announcement[]>(path, { signal: controller.signal })
+    const read = () => api.get(path, { signal: controller.signal })
       .then(({ data }) => { setItems(data); setError(''); })
       .catch(error => { if (!controller.signal.aborted) setError(errorMessage(error)); });
     read();
@@ -32,15 +27,15 @@ export default function Announcements({ api, canEdit, note }: {
   }, [api, path, revision]);
 
   useEffect(() => {
-    if (canEdit) api.get<Subject[]>('/subjects').then(({ data }) => setSubjects(data)).catch(error => note(errorMessage(error)));
+    if (canEdit) api.get('/subjects').then(({ data }) => setSubjects(data)).catch(error => note(errorMessage(error)));
   }, [api, canEdit, note]);
 
-  function openEditor(item: Announcement | null) {
+  function openEditor(item) {
     setFormError('');
     setEditing(item);
   }
 
-  async function save(event: FormEvent<HTMLFormElement>) {
+  async function save(event) {
     event.preventDefault();
     if (busy) return;
     const data = new FormData(event.currentTarget);
@@ -71,7 +66,7 @@ export default function Announcements({ api, canEdit, note }: {
     }
   }
 
-  async function remove(item: Announcement) {
+  async function remove(item) {
     if (!window.confirm('Delete “' + item.title + '”?')) return;
     setBusy(true);
     try {
