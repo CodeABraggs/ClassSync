@@ -1,0 +1,604 @@
+# ClassSync — Full-Stack Web Application Development Specification
+
+## 1. Project Overview
+
+**Project Name:** ClassSync
+
+**Description:**
+
+ClassSync is a centralized web application designed for college students to manage academic calendars, announcements, assignment deadlines, examination schedules, and study resources.
+
+The main problem ClassSync solves is that important academic information gets lost in WhatsApp group conversations. Students often have to search through hundreds of messages to find notes, assignment dates, or important announcements.
+
+ClassSync will provide a single platform where the Class Representative (CR) can manage academic information and students can access everything easily.
+
+The application is initially intended for **one college class containing approximately 60–70 students**.
+
+Each academic semester lasts approximately six months.
+
+The application must be simple, responsive, secure, and easy to use.
+
+## 2. Technology Stack
+
+### Frontend
+- React.js with TypeScript
+- Vite
+- Tailwind CSS
+- React Router
+- Axios for API communication
+- FullCalendar for displaying academic calendars
+- Lucide React for icons
+
+### Backend
+- Java 21
+- Spring Boot 3.x (latest compatible stable version)
+- Spring Web for REST APIs
+- Spring Security for authentication and authorization
+- Spring Data JPA / Hibernate for database operations
+- Maven for dependency management
+- Jakarta Bean Validation
+- Flyway for database migrations
+
+### Database
+- MySQL 8.x
+
+### File Storage
+- **During local development:** MinIO, an S3-compatible object storage service running locally.
+- **After AWS deployment:** Amazon S3.
+
+Use the AWS SDK for Java v2 to communicate with both MinIO and Amazon S3.
+
+Create a storage abstraction so switching between MinIO and AWS S3 requires minimal code changes.
+
+### Calendar Integration
+- FullCalendar for the ClassSync calendar interface.
+- iCalendar (.ics) generation for personal calendar synchronization.
+- Support subscriptions from compatible calendar apps, including Google Calendar, Apple Calendar, and Outlook.
+
+### Deployment
+Initially, the entire application should run on a laptop.
+
+Later, the application should be deployable using AWS:
+- Amazon EC2 for Spring Boot.
+- Amazon S3 for academic resources.
+- Amazon S3 + CloudFront for the React frontend.
+- MySQL hosted on EC2 initially, with Amazon RDS as a possible future option.
+
+**Important:** Do not deploy to AWS during initial development. Implement and test everything locally first.
+
+## 3. User Roles
+
+There will be two user roles.
+
+### Role 1: Class Representative (CR)
+
+The CR is the administrator of the class.
+
+The CR should be able to:
+- Log in securely.
+- Create, edit, and delete announcements.
+- Create, edit, and delete academic calendar events.
+- Add examination dates, assignments, and deadlines.
+- Upload academic resources such as PDFs, PPTs, DOCX files, and notes.
+- Organize resources by subject and semester.
+- Delete outdated academic resources.
+- Manage student account approvals.
+- Manage semester information.
+
+### Role 2: Student
+
+Students should be able to:
+- Register and log in.
+- View announcements.
+- View upcoming exams, assignments, and deadlines.
+- View the shared academic calendar.
+- Download academic resources.
+- Search and filter notes by subject.
+- Add individual academic events to personal calendars.
+- Subscribe to the shared ClassSync calendar.
+
+Students must not be allowed to modify CR-managed information.
+
+Use role-based authorization in Spring Security.
+
+For the initial version, provide a secure way to bootstrap the first CR account. Students can register and receive access after CR approval.
+
+## 4. Main Application Modules
+
+### Module A: Authentication and Authorization
+
+Implement a secure login system for students and the CR.
+
+Requirements:
+- Login and logout.
+- Student registration.
+- CR approval of student registrations.
+- Password hashing using BCrypt or another secure Spring-supported encoder.
+- Role-based access control.
+- Protected backend endpoints.
+- Secure session-based authentication with HTTP-only cookies and appropriate CSRF protection.
+- Passwords must never be stored as plain text.
+
+The CR and students can use the same login page and be redirected to their appropriate dashboards.
+
+### Module B: Academic Dashboard
+
+After logging in, students should see a dashboard showing:
+
+1. Upcoming exams.
+2. Upcoming assignment deadlines.
+3. Recent announcements.
+4. Recently uploaded academic resources.
+5. Calendar overview.
+
+The CR dashboard should also include quick actions to add announcements, events, and resources.
+
+Use a modern, clean, mobile-responsive interface.
+
+### Module C: Announcements
+
+The CR can publish announcements containing:
+
+- Announcement title.
+- Description.
+- Creation date.
+- Priority: Normal or Important.
+- Optional related subject.
+
+Students can view announcements in reverse chronological order.
+
+Important announcements should be visually highlighted.
+
+Only the CR can create, edit, or delete announcements.
+
+### Module D: Shared Academic Calendar
+
+The calendar is one of the most important features of ClassSync.
+
+The CR should be able to schedule events such as:
+
+- Internal examinations.
+- Semester examinations.
+- Assignment deadlines.
+- Lab submissions.
+- Academic events.
+- Holidays.
+- Other class-related activities.
+
+Every calendar event should contain:
+
+- Event ID.
+- Title.
+- Description.
+- Event type.
+- Start date and time.
+- End date and time.
+- Optional subject.
+- Optional location.
+- Semester ID.
+
+Students should see events in a monthly, weekly, or list view using FullCalendar.
+
+Provide a dashboard section displaying upcoming deadlines.
+
+Use the Asia/Kolkata timezone for the initial class configuration.
+
+### Module E: Personal Calendar Synchronization
+
+Students should have an option to add ClassSync calendar events to their own personal calendars.
+
+Implement two features.
+
+**Feature 1: Add Individual Event to Calendar**
+
+Each academic calendar event should have an "Add to Calendar" option.
+
+Allow students to download a valid `.ics` file that can be imported into compatible calendar applications.
+
+**Feature 2: Subscribe to the ClassSync Calendar**
+
+Students should have a "Subscribe to Class Calendar" option.
+
+Spring Boot should generate a dynamic `.ics` calendar feed containing class events.
+
+Students can subscribe to this feed using compatible personal calendar applications.
+
+When the CR updates, adds, or cancels an event, the subscription feed should reflect the updated information.
+
+Actual synchronization timing depends on how frequently the student's calendar provider refreshes subscribed calendars.
+
+Requirements:
+- Use stable event UIDs.
+- Handle event updates and cancellations correctly.
+- Generate valid iCalendar data.
+- Use private, revocable subscription tokens rather than exposing the entire class calendar publicly.
+- Do not expose student passwords or authentication tokens in calendar URLs.
+- Do not modify students' unrelated personal calendar events.
+
+Direct Google Calendar OAuth synchronization is **not required for the MVP**. It can be added later.
+
+### Module F: Academic Resource Management
+
+The CR should be able to upload study materials directly through the ClassSync website.
+
+Supported files:
+- PDF
+- PPT/PPTX
+- DOC/DOCX
+- Other explicitly permitted academic document formats
+
+**Important requirement:**
+
+The CR should never need to visit MinIO, Amazon S3, or another storage website to upload resources.
+
+The upload process must happen entirely through ClassSync.
+
+Example workflow:
+
+1. CR opens the Resources page.
+2. CR selects a subject.
+3. CR selects a file from their laptop.
+4. CR clicks Upload.
+5. React sends the upload request to Spring Boot.
+6. Spring Boot validates the request and user permissions.
+7. Spring Boot uploads the actual file into MinIO.
+8. Spring Boot stores the file's metadata and object key in MySQL.
+9. Students can immediately see the uploaded resource.
+
+For downloads:
+
+1. Student opens the Resources page.
+2. Student selects a resource.
+3. Student clicks Download.
+4. Spring Boot verifies the student's access.
+5. Spring Boot retrieves the file from MinIO.
+6. The student downloads the resource through ClassSync without being redirected to MinIO.
+
+Initially, implement secure streaming through Spring Boot. Presigned URLs may be introduced later for performance.
+
+The object storage bucket must remain private.
+
+**Do not store actual PDF/PPT/DOCX files as BLOBs in MySQL.**
+
+MySQL should store only resource metadata, including:
+- Resource ID.
+- File name.
+- Storage object key.
+- Content type.
+- File size.
+- Subject ID.
+- Semester ID.
+- Uploaded by.
+- Upload timestamp.
+- Expiration date.
+
+Use server-side file validation, safe object keys, configurable upload limits, and proper error handling.
+
+### Module G: Subject-Wise Resource Organization
+
+Students should be able to browse resources by subject.
+
+Example:
+
+Semester 4
+- Database Management Systems
+  - Unit 1 Notes
+  - Unit 2 Notes
+  - Previous Question Papers
+- Operating Systems
+  - Notes
+  - Lab Manuals
+- Computer Networks
+  - Presentations
+  - Assignments
+
+Provide subject filtering and file-name search.
+
+### Module H: Semester Management
+
+Each semester lasts approximately six months.
+
+Resources, subjects, and calendar events should be associated with a semester.
+
+Requirements:
+- Allow the CR to create and activate semesters.
+- Associate resources with the relevant semester.
+- Archive previous semesters.
+- Allow students to view current semester information by default.
+- Support optional access to archived semester records.
+- Support scheduled removal of outdated files after the semester ends.
+
+For safety, provide a configurable grace period of 30 days after a semester ends and an export/confirmation mechanism before permanent deletion.
+
+The CR should be able to manage retention policies.
+
+Use Spring Boot scheduled tasks where appropriate.
+
+## 5. Database Design
+
+Use MySQL as the primary relational database.
+
+Create the following entities/tables:
+
+**User**
+- id
+- name
+- email
+- password_hash
+- role
+- approval_status
+- created_at
+
+**Semester**
+- id
+- name
+- start_date
+- end_date
+- status
+
+**Subject**
+- id
+- name
+- subject_code
+- semester_id
+
+**Announcement**
+- id
+- title
+- content
+- priority
+- subject_id (nullable)
+- created_by
+- created_at
+- updated_at
+
+**CalendarEvent**
+- id
+- title
+- description
+- event_type
+- start_at
+- end_at
+- location
+- subject_id (nullable)
+- semester_id
+- created_by
+- created_at
+- updated_at
+
+**Resource**
+- id
+- file_name
+- storage_key
+- content_type
+- file_size
+- subject_id
+- semester_id
+- uploaded_by
+- uploaded_at
+- expires_at
+
+**CalendarSubscription**
+- id
+- user_id
+- token_hash
+- created_at
+- revoked_at
+
+Use proper foreign keys, indexes, entity relationships, and database constraints.
+
+Use Flyway migrations instead of relying on automatic schema creation in production.
+
+Since the first version serves only one class, avoid unnecessary multi-tenant architecture.
+
+## 6. Backend Architecture
+
+Follow a clean, maintainable layered Spring Boot architecture.
+
+Suggested package structure:
+
+```text
+backend/
+└── src/main/java/com/classsync/
+    ├── config/
+    ├── security/
+    ├── controller/
+    ├── service/
+    ├── repository/
+    ├── entity/
+    ├── dto/
+    ├── exception/
+    ├── storage/
+    └── ClassSyncApplication.java
+```
+
+Use:
+- Controllers for REST endpoints.
+- Services for business logic.
+- Repositories for database access.
+- DTOs for request and response objects.
+- Entities for database mapping.
+- Global exception handling.
+- Bean Validation for input validation.
+- Spring Security for authorization.
+
+Create a `StorageService` interface so MinIO and Amazon S3 can use the same application-level operations.
+
+Separate configuration for local and production environments.
+
+## 7. Frontend Architecture
+
+Suggested React structure:
+
+```text
+frontend/
+└── src/
+    ├── components/
+    ├── pages/
+    ├── layouts/
+    ├── services/
+    ├── hooks/
+    ├── context/
+    ├── types/
+    ├── utils/
+    └── App.tsx
+```
+
+Create these pages:
+
+1. Login
+2. Student Registration
+3. Student Dashboard
+4. CR Dashboard
+5. Announcements
+6. Academic Calendar
+7. Resources
+8. Resource Upload (CR only)
+9. Semester and Subject Management (CR only)
+10. Student Account Approval (CR only)
+11. Calendar Subscription Settings
+
+Use responsive layouts suitable for both laptops and mobile phones.
+
+The UI should be modern, minimal, and intuitive.
+
+## 8. Local Development Environment
+
+Everything must work locally before attempting AWS deployment.
+
+Use:
+- React Vite development server.
+- Spring Boot local server.
+- Local MySQL database.
+- MinIO object storage.
+- Docker Compose for MySQL and MinIO, if Docker is available.
+
+Suggested development ports:
+- React: 5173
+- Spring Boot: 8080
+- MySQL: 3306
+- MinIO API: 9000
+- MinIO Console: 9001
+
+Use environment variables for:
+- Database credentials.
+- Storage credentials.
+- Bucket name.
+- Storage endpoint.
+- Application URLs.
+- Security configuration.
+
+Never hardcode or commit secrets.
+
+Include `.env.example` or equivalent configuration templates with placeholder values.
+
+## 9. Future AWS Deployment
+
+Do not implement deployment immediately, but design the application to make migration straightforward.
+
+Planned changes:
+
+- Replace local MinIO configuration with Amazon S3 configuration.
+- Deploy the Spring Boot application to EC2.
+- Deploy the React frontend as static files using S3 and CloudFront.
+- Host MySQL on EC2 or Amazon RDS.
+- Configure HTTPS and secure production cookies.
+- Use AWS IAM roles rather than hardcoded AWS access keys.
+- Configure environment-specific settings.
+
+Keep deployment within a small budget and avoid unnecessary AWS services.
+
+## 10. Development Priorities
+
+Build the application incrementally in the following order.
+
+**Phase 1 — Project Setup**
+- Create frontend and backend projects.
+- Configure MySQL.
+- Set up MinIO.
+- Establish frontend-to-backend API communication.
+
+**Phase 2 — Authentication**
+- Implement student registration and login.
+- Implement CR login.
+- Implement role-based authorization.
+- Implement student approval.
+
+**Phase 3 — Announcements**
+- Implement announcement CRUD APIs.
+- Build announcement management pages.
+
+**Phase 4 — Calendar**
+- Implement calendar event CRUD APIs.
+- Integrate FullCalendar.
+- Implement upcoming deadline display.
+- Implement `.ics` downloads and subscription feeds.
+
+**Phase 5 — Resource Management**
+- Integrate MinIO with Spring Boot.
+- Implement file uploads.
+- Implement secure downloads.
+- Implement subject-wise resource management.
+
+**Phase 6 — Semester Management**
+- Add semester associations.
+- Implement archival.
+- Implement safe file expiration and cleanup.
+
+**Phase 7 — Integration and Testing**
+- Complete frontend-to-backend integration.
+- Add validation and error handling.
+- Test user role permissions.
+- Test uploads/downloads.
+- Test calendar subscriptions.
+- Test end-to-end workflows.
+
+**Phase 8 — AWS Deployment (Later)**
+- Prepare production configurations.
+- Document AWS deployment procedures.
+- Do not provision paid AWS resources until explicitly requested.
+
+## 11. General Development Requirements
+
+- Implement a working application, not just UI mockups.
+- Use real Spring Boot APIs and MySQL persistence.
+- Keep the code readable and beginner-friendly.
+- Avoid unnecessary microservices or overly complex infrastructure.
+- Include meaningful API error responses.
+- Use appropriate loading states and success/error notifications.
+- Add unit and integration tests for important backend behavior.
+- Provide sample development data for subjects, events, and resources.
+- Include a README with setup instructions.
+- Provide commands to start the frontend, backend, MySQL, and MinIO.
+- Explain how to configure and run everything locally.
+- Avoid external paid services during development.
+
+## 12. Final Goal
+
+Build a fully functioning ClassSync application where:
+
+- One CR can manage a class of approximately 60–70 students.
+- Students can securely log in and access academic information.
+- Important announcements are available in one centralized location.
+- The CR can manage examination schedules and assignment deadlines.
+- Students can synchronize class events with their personal calendars.
+- The CR can upload study resources through ClassSync.
+- Students can download those resources directly through ClassSync.
+- Files are stored in MinIO locally and can later be migrated to Amazon S3.
+- MySQL stores structured application data and file metadata.
+- Semester-specific resources can be archived and eventually deleted.
+- The complete application runs on a laptop before cloud deployment.
+
+**Instructions to Codex:**
+
+First, inspect the existing repository and reuse any appropriate existing code. Then establish the project structure and implement the application phase by phase.
+
+Start with Phase 1: Spring Boot setup, MySQL configuration, MinIO setup, React setup, and basic API connectivity.
+
+After that, implement the remaining phases in order.
+
+Prioritize working, tested features over unnecessary complexity.
+
+Use clear explanations for important architectural decisions, and document the local setup and commands.
+
+Do not perform AWS deployment until explicitly instructed.
